@@ -20,6 +20,8 @@ const GITHUB_CALLBACK_URL =
 const CLIENT_URL =
   process.env.CLIENT_URL || `https://${_primaryDomain}`;
 
+logger.info({ GITHUB_CALLBACK_URL, CLIENT_URL }, "GitHub OAuth config");
+
 if (GITHUB_CLIENT_ID && GITHUB_CLIENT_SECRET) {
   passport.use(
     new GitHubStrategy(

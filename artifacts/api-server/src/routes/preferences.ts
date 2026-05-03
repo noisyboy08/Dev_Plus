@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { eq } from "drizzle-orm";
 import { db, preferencesTable } from "@workspace/db";
 import {
@@ -8,6 +8,9 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { logger } from "../lib/logger.js";
+import type { usersTable } from "@workspace/db";
+
+type AuthedRequest = Request & { sessionUser: typeof usersTable.$inferSelect };
 
 const router: IRouter = Router();
 
@@ -21,7 +24,7 @@ function serializePreferences(p: typeof preferencesTable.$inferSelect) {
 }
 
 router.get("/preferences", requireAuth, async (req, res): Promise<void> => {
-  const user = req.user as { id: number };
+  const user = (req as AuthedRequest).sessionUser;
   try {
     const [prefs] = await db
       .select()
@@ -52,7 +55,7 @@ router.put("/preferences", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const user = req.user as { id: number };
+  const user = (req as AuthedRequest).sessionUser;
   try {
     const updateData: Partial<typeof preferencesTable.$inferSelect> = {};
     if (body.data.slackWebhookUrl !== undefined) updateData.slackWebhookUrl = body.data.slackWebhookUrl;

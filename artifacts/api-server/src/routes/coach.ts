@@ -1,9 +1,12 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { CoachChatBody, CoachChatResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { getActivity } from "../lib/github.js";
 import { logger } from "../lib/logger.js";
+import type { usersTable } from "@workspace/db";
+
+type AuthedRequest = Request & { sessionUser: typeof usersTable.$inferSelect };
 
 const router: IRouter = Router();
 
@@ -14,7 +17,7 @@ router.post("/coach/chat", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const user = req.user as { id: number; accessToken: string; username: string };
+  const user = (req as AuthedRequest).sessionUser;
 
   let activityContext = "No recent GitHub activity available.";
 

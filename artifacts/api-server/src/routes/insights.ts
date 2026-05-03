@@ -1,6 +1,7 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, standupsTable, usersTable } from "@workspace/db";
+import type { usersTable as usersTableType } from "@workspace/db";
 import {
   GetInsightsStreakResponse,
   GetInsightsBestDayResponse,
@@ -11,10 +12,12 @@ import {
 import { requireAuth } from "../middleware/requireAuth.js";
 import { logger } from "../lib/logger.js";
 
+type AuthedRequest = Request & { sessionUser: typeof usersTableType.$inferSelect };
+
 const router: IRouter = Router();
 
 router.get("/insights/streak", requireAuth, async (req, res): Promise<void> => {
-  const user = req.user as { id: number };
+  const user = (req as AuthedRequest).sessionUser;
   try {
     const standups = await db
       .select({ date: standupsTable.date })
@@ -65,7 +68,7 @@ router.get("/insights/streak", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/insights/best-day", requireAuth, async (req, res): Promise<void> => {
-  const user = req.user as { id: number };
+  const user = (req as AuthedRequest).sessionUser;
   try {
     const standups = await db
       .select({ date: standupsTable.date, velocityScore: standupsTable.velocityScore })
@@ -88,9 +91,10 @@ router.get("/insights/best-day", requireAuth, async (req, res): Promise<void> =>
       .filter((d) => d !== "Sun" && d !== "Sat")
       .map((day) => ({
         day,
-        avgVelocity: dayMap[day].count > 0
-          ? Math.round((dayMap[day].total / dayMap[day].count) * 10) / 10
-          : 0,
+        avgVelocity:
+          dayMap[day].count > 0
+            ? Math.round((dayMap[day].total / dayMap[day].count) * 10) / 10
+            : 0,
         count: dayMap[day].count,
       }));
 
@@ -103,12 +107,14 @@ router.get("/insights/best-day", requireAuth, async (req, res): Promise<void> =>
 
 router.get("/insights/pr-cycle-time", requireAuth, async (req, res): Promise<void> => {
   const params = GetInsightsPrCycleTimeQueryParams.safeParse(req.query);
-  const user = req.user as { id: number; accessToken: string };
+  const user = (req as AuthedRequest).sessionUser;
 
   const repo = params.success ? params.data.repo : undefined;
 
   if (!repo) {
-    res.json(GetInsightsPrCycleTimeResponse.parse({ avgHours: 0, label: "No repo selected", color: "gray" }));
+    res.json(
+      GetInsightsPrCycleTimeResponse.parse({ avgHours: 0, label: "No repo selected", color: "gray" })
+    );
     return;
   }
 
@@ -125,15 +131,19 @@ router.get("/insights/pr-cycle-time", requireAuth, async (req, res): Promise<voi
     );
 
     if (!response.ok) {
-      res.json(GetInsightsPrCycleTimeResponse.parse({ avgHours: 0, label: "Unable to fetch", color: "gray" }));
+      res.json(
+        GetInsightsPrCycleTimeResponse.parse({ avgHours: 0, label: "Unable to fetch", color: "gray" })
+      );
       return;
     }
 
-    const prs = await response.json() as Array<Record<string, unknown>>;
+    const prs = (await response.json()) as Array<Record<string, unknown>>;
     const merged = prs.filter((p) => p.merged_at);
 
     if (merged.length === 0) {
-      res.json(GetInsightsPrCycleTimeResponse.parse({ avgHours: 0, label: "No merged PRs", color: "gray" }));
+      res.json(
+        GetInsightsPrCycleTimeResponse.parse({ avgHours: 0, label: "No merged PRs", color: "gray" })
+      );
       return;
     }
 
@@ -166,7 +176,7 @@ router.get("/insights/pr-cycle-time", requireAuth, async (req, res): Promise<voi
 });
 
 router.get("/insights/top-keywords", requireAuth, async (req, res): Promise<void> => {
-  const user = req.user as { id: number };
+  const user = (req as AuthedRequest).sessionUser;
   try {
     const standups = await db
       .select({ rawActivity: standupsTable.rawActivity })
@@ -215,5 +225,8 @@ router.get("/insights/top-keywords", requireAuth, async (req, res): Promise<void
     res.status(500).json({ error: "Failed to compute top keywords" });
   }
 });
+
+// suppress unused import warning
+void usersTable;
 
 export default router;

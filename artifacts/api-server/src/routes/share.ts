@@ -1,10 +1,13 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { eq, and } from "drizzle-orm";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { db, standupsTable } from "@workspace/db";
 import { GenerateLinkedinPostBody, GenerateLinkedinPostResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { logger } from "../lib/logger.js";
+import type { usersTable } from "@workspace/db";
+
+type AuthedRequest = Request & { sessionUser: typeof usersTable.$inferSelect };
 
 const router: IRouter = Router();
 
@@ -15,7 +18,7 @@ router.post("/share/linkedin-post", requireAuth, async (req, res): Promise<void>
     return;
   }
 
-  const user = req.user as { id: number };
+  const user = (req as AuthedRequest).sessionUser;
 
   const [standup] = await db
     .select()

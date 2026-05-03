@@ -1,6 +1,7 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { eq, desc, and } from "drizzle-orm";
-import { db, standupsTable, preferencesTable } from "@workspace/db";
+import { db, standupsTable, preferencesTable, usersTable } from "@workspace/db";
+import type { usersTable as usersTableType } from "@workspace/db";
 import {
   GenerateStandupBody,
   GenerateStandupResponse,
@@ -12,11 +13,12 @@ import {
   GetPublicStandupParams,
   GetPublicStandupResponse,
 } from "@workspace/api-zod";
-import { usersTable } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { getActivity } from "../lib/github.js";
 import { generateStandup } from "../lib/claude.js";
 import { logger } from "../lib/logger.js";
+
+type AuthedRequest = Request & { sessionUser: typeof usersTableType.$inferSelect };
 
 const router: IRouter = Router();
 
@@ -43,7 +45,7 @@ router.post("/standup/generate", requireAuth, async (req, res): Promise<void> =>
     return;
   }
 
-  const user = req.user as { id: number; accessToken: string };
+  const user = (req as AuthedRequest).sessionUser;
 
   try {
     const [prefs] = await db
@@ -55,7 +57,7 @@ router.post("/standup/generate", requireAuth, async (req, res): Promise<void> =>
     const tone = prefs?.standupTone || "professional";
 
     const activity = await getActivity(
-      user.accessToken,
+      user.accessToken!,
       body.data.repoName,
       body.data.since
     );
@@ -89,9 +91,9 @@ router.post("/standup/generate", requireAuth, async (req, res): Promise<void> =>
     if (userStandups.length > 30) {
       const toDelete = userStandups.slice(30).map((s) => s.id);
       for (const id of toDelete) {
-        await db.delete(standupsTable).where(
-          and(eq(standupsTable.id, id), eq(standupsTable.userId, user.id))
-        );
+        await db
+          .delete(standupsTable)
+          .where(and(eq(standupsTable.id, id), eq(standupsTable.userId, user.id)));
       }
     }
 
@@ -103,7 +105,7 @@ router.post("/standup/generate", requireAuth, async (req, res): Promise<void> =>
 });
 
 router.get("/standup/history", requireAuth, async (req, res): Promise<void> => {
-  const user = req.user as { id: number };
+  const user = (req as AuthedRequest).sessionUser;
   try {
     const standups = await db
       .select()
@@ -125,7 +127,7 @@ router.get("/standup/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const user = req.user as { id: number };
+  const user = (req as AuthedRequest).sessionUser;
   const [standup] = await db
     .select()
     .from(standupsTable)
@@ -190,7 +192,7 @@ router.post("/standup/:id/send-slack", requireAuth, async (req, res): Promise<vo
     return;
   }
 
-  const user = req.user as { id: number };
+  const user = (req as AuthedRequest).sessionUser;
 
   const [prefs] = await db
     .select()

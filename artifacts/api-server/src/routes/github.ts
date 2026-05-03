@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import {
   GetGithubActivityQueryParams,
   GetGithubVelocityQueryParams,
@@ -9,11 +9,14 @@ import {
 import { requireAuth } from "../middleware/requireAuth.js";
 import { listRepos, getActivity, getVelocity } from "../lib/github.js";
 import { logger } from "../lib/logger.js";
+import type { usersTable } from "@workspace/db";
+
+type AuthedRequest = Request & { sessionUser: typeof usersTable.$inferSelect };
 
 const router: IRouter = Router();
 
 router.get("/github/repos", requireAuth, async (req, res): Promise<void> => {
-  const user = req.user as { accessToken: string };
+  const user = (req as AuthedRequest).sessionUser;
   try {
     const repos = await listRepos(user.accessToken);
     res.json(GetGithubReposResponse.parse(repos));
@@ -30,7 +33,7 @@ router.get("/github/activity", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const user = req.user as { accessToken: string };
+  const user = (req as AuthedRequest).sessionUser;
   try {
     const activity = await getActivity(user.accessToken, params.data.repo, params.data.since);
     res.json(GetGithubActivityResponse.parse(activity));
@@ -47,7 +50,7 @@ router.get("/github/velocity", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const user = req.user as { accessToken: string };
+  const user = (req as AuthedRequest).sessionUser;
   try {
     const velocity = await getVelocity(user.accessToken, params.data.repo);
     res.json(GetGithubVelocityResponse.parse(velocity));

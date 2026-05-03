@@ -9,7 +9,10 @@ import {
   GetStandupResponse,
   SendStandupToSlackParams,
   SendStandupToSlackResponse,
+  GetPublicStandupParams,
+  GetPublicStandupResponse,
 } from "@workspace/api-zod";
+import { usersTable } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { getActivity } from "../lib/github.js";
 import { generateStandup } from "../lib/claude.js";
@@ -135,6 +138,49 @@ router.get("/standup/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.json(GetStandupResponse.parse(serializeStandup(standup)));
+});
+
+router.get("/standup/:id/public", async (req, res): Promise<void> => {
+  const params = GetPublicStandupParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [standup] = await db
+    .select()
+    .from(standupsTable)
+    .where(eq(standupsTable.id, params.data.id))
+    .limit(1);
+
+  if (!standup) {
+    res.status(404).json({ error: "Standup not found" });
+    return;
+  }
+
+  const [user] = await db
+    .select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl })
+    .from(usersTable)
+    .where(eq(usersTable.id, standup.userId))
+    .limit(1);
+
+  const publicData = {
+    id: standup.id,
+    repoName: standup.repoName,
+    date: standup.date,
+    yesterday: standup.yesterday,
+    today: standup.today,
+    blockers: JSON.parse(standup.blockers) as string[],
+    nextPriorityTask: standup.nextPriorityTask,
+    velocityScore: standup.velocityScore,
+    createdAt: standup.createdAt.toISOString(),
+    author: {
+      username: user?.username || "Unknown",
+      avatarUrl: user?.avatarUrl || null,
+    },
+  };
+
+  res.json(GetPublicStandupResponse.parse(publicData));
 });
 
 router.post("/standup/:id/send-slack", requireAuth, async (req, res): Promise<void> => {

@@ -1,10 +1,18 @@
-import { Standup } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { 
+  Standup, 
+  useSendStandupToSlack, 
+  useGenerateLinkedinPost 
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Copy, Slack, RefreshCw, CheckCircle2, AlertCircle, ArrowRightCircle } from "lucide-react";
+import { Copy, Slack, Linkedin, Share2, RefreshCw, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useSendStandupToSlack } from "@workspace/api-client-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
 
 interface StandupCardProps {
   standup: Standup;
@@ -12,127 +20,213 @@ interface StandupCardProps {
   isRegenerating?: boolean;
 }
 
-export function getVelocityColor(score: number | null | undefined) {
-  if (score == null) return "bg-muted text-muted-foreground";
-  if (score >= 8) return "bg-green-500/10 text-green-500 border-green-500/20";
-  if (score >= 5) return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
-  return "bg-red-500/10 text-red-500 border-red-500/20";
-}
-
 export function StandupCard({ standup, onRegenerate, isRegenerating }: StandupCardProps) {
   const { toast } = useToast();
   const sendToSlackMutation = useSendStandupToSlack();
+  const linkedinMutation = useGenerateLinkedinPost();
 
   const handleCopy = () => {
-    const text = `Yesterday: ${standup.yesterday}
-Today: ${standup.today}
-Blockers: ${standup.blockers?.length > 0 ? standup.blockers.join(', ') : 'None'}`;
-    
-    navigator.clipboard.writeText(text).then(() => {
-      toast({
-        title: "Copied to clipboard",
-        description: "Standup text has been copied to your clipboard.",
-      });
-    });
+    const text = `Yesterday: ${standup.yesterday}\n\nToday: ${standup.today}\n\nBlockers: ${standup.blockers?.length ? standup.blockers.join(', ') : 'None'}`;
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied to clipboard" });
+  };
+
+  const handleShare = () => {
+    const url = window.location.origin + '/standup/' + standup.id + '/share';
+    navigator.clipboard.writeText(url);
+    toast({ title: "Share link copied" });
   };
 
   const handleSlack = () => {
     sendToSlackMutation.mutate({ id: standup.id }, {
-      onSuccess: () => {
-        toast({
-          title: "Sent to Slack",
-          description: "Standup was successfully sent to your configured Slack channel.",
-        });
-      },
-      onError: () => {
-        toast({
-          title: "Failed to send",
-          description: "Could not send to Slack. Check your settings.",
-          variant: "destructive",
-        });
-      }
+      onSuccess: () => toast({ title: "Sent to Slack" }),
+      onError: () => toast({ title: "Failed to send to Slack", variant: "destructive" })
     });
   };
 
+  const getVelocityColor = (score: number) => {
+    if (score >= 8) return 'var(--accent-green)';
+    if (score >= 5) return '#ffa500';
+    return 'var(--accent-red)';
+  };
+
   return (
-    <Card className="w-full bg-card border-border shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/50">
-        <div className="flex flex-col gap-1">
-          <CardTitle className="text-xl font-bold">Today's Standup</CardTitle>
-          <div className="text-sm text-muted-foreground font-mono">
-            {standup.repoName} • {new Date(standup.date).toLocaleDateString()}
-          </div>
+    <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg overflow-hidden animate-fade-up shadow-2xl">
+      <div className="p-8 border-b border-[var(--border-subtle)] flex items-center justify-between">
+        <div className="font-mono text-xs text-[var(--text-muted)] tracking-widest uppercase">
+          {new Date(standup.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
         </div>
         {standup.velocityScore != null && (
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Velocity</span>
-            <Badge variant="outline" className={`text-base px-3 py-1 ${getVelocityColor(standup.velocityScore)}`}>
-              {standup.velocityScore} / 10
-            </Badge>
+          <div className="flex flex-col items-center">
+            <div 
+              className="font-[Syne] font-extrabold text-4xl velocity-score-animate"
+              style={{ color: getVelocityColor(standup.velocityScore) }}
+            >
+              {standup.velocityScore}
+            </div>
+            <div className="text-[8px] font-mono text-[var(--text-muted)] uppercase tracking-tighter">VELOCITY SCORE</div>
           </div>
         )}
-      </CardHeader>
-      <CardContent className="pt-6 space-y-6">
-        <div className="space-y-2">
-          <h4 className="flex items-center text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            <CheckCircle2 className="mr-2 h-4 w-4" /> Yesterday
-          </h4>
-          <div className="pl-6 border-l-2 border-border/50 whitespace-pre-wrap text-sm leading-relaxed">
+      </div>
+
+      <div className="grid md:grid-cols-2">
+        <div className="p-8 border-r border-[var(--border-subtle)]">
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)] mb-4">YESTERDAY</div>
+          <div className="font-[DM_Sans] text-sm leading-relaxed text-[var(--text-primary)]">
             {standup.yesterday}
           </div>
         </div>
-        
-        <div className="space-y-2">
-          <h4 className="flex items-center text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            <ArrowRightCircle className="mr-2 h-4 w-4 text-primary" /> Today
-          </h4>
-          <div className="pl-6 border-l-2 border-primary/30 whitespace-pre-wrap text-sm leading-relaxed">
+        <div className="p-8">
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)] mb-4">TODAY</div>
+          <div className="font-[DM_Sans] text-sm leading-relaxed text-[var(--text-primary)]">
             {standup.today}
           </div>
         </div>
+      </div>
 
-        <div className="space-y-2">
-          <h4 className="flex items-center text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            <AlertCircle className="mr-2 h-4 w-4 text-destructive" /> Blockers
-          </h4>
-          <div className="pl-6 border-l-2 border-destructive/30 text-sm">
-            {standup.blockers && standup.blockers.length > 0 ? (
-              <ul className="list-disc pl-4 space-y-1">
-                {standup.blockers.map((blocker, i) => (
-                  <li key={i}>{blocker}</li>
-                ))}
-              </ul>
-            ) : (
-              <span className="text-muted-foreground italic">None</span>
-            )}
+      <div className="px-8 py-6 border-t border-[var(--border-subtle)]">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-4 p-4 rounded-r border-l-4 border-[var(--accent-red)] bg-red-500/5">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-1">BLOCKERS</div>
+              <div className="font-[DM_Sans] text-sm text-[var(--text-primary)]">
+                {standup.blockers?.length ? standup.blockers.join(', ') : <span className="text-[var(--accent-green)]/60 italic">None</span>}
+              </div>
+            </div>
           </div>
+
+          {standup.nextPriorityTask && (
+            <div className="flex items-start gap-4 p-4 rounded-r border-l-4 border-[var(--accent-orange)] bg-[var(--accent-orange-glow)]">
+              <Zap className="w-4 h-4 text-[var(--accent-orange)] mt-1 flex-shrink-0" />
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-1">PRIORITY TASK</div>
+                <div className="font-[DM_Sans] text-sm text-[var(--text-primary)]">
+                  {standup.nextPriorityTask}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="px-8 py-4 bg-[var(--bg-tertiary)] border-t border-[var(--border-subtle)] flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleCopy}
+            className="h-8 rounded-none border border-[var(--border-subtle)] font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
+          >
+            <Copy className="w-3 h-3 mr-2" />
+            Copy
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleSlack}
+            disabled={sendToSlackMutation.isPending}
+            className="h-8 rounded-none border border-[var(--border-subtle)] font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
+          >
+            <Slack className="w-3 h-3 mr-2" />
+            Slack
+          </Button>
+          
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => linkedinMutation.mutate({ data: { standupId: standup.id } })}
+                className="h-8 rounded-none border border-[var(--border-subtle)] font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
+              >
+                <Linkedin className="w-3 h-3 mr-2" />
+                LinkedIn
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-[var(--bg-secondary)] border-[var(--border-subtle)] text-[var(--text-primary)] max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="font-[Syne]">LinkedIn Post Preview</DialogTitle>
+              </DialogHeader>
+              <div className="mt-4">
+                {linkedinMutation.isPending ? (
+                  <div className="flex flex-col items-center py-10 gap-4">
+                    <Loader2 className="w-8 h-8 animate-spin text-[var(--accent-orange)]" />
+                    <span className="text-xs font-mono uppercase tracking-widest opacity-50">Crafting your professional post...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <textarea 
+                      readOnly 
+                      value={linkedinMutation.data?.post} 
+                      className="w-full h-48 bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] rounded-lg p-4 font-[DM_Sans] text-sm resize-none focus:outline-none"
+                    />
+                    <div className="flex justify-end gap-3">
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => {
+                          navigator.clipboard.writeText(linkedinMutation.data?.post || "");
+                          toast({ title: "Post copied" });
+                        }}
+                        className="font-mono text-xs"
+                      >
+                        Copy Text
+                      </Button>
+                      <Button 
+                        onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.origin + '/standup/' + standup.id + '/share')}`, '_blank')}
+                        className="btn-orange font-mono text-xs"
+                      >
+                        Open LinkedIn
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleShare}
+            className="h-8 rounded-none border border-[var(--border-subtle)] font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
+          >
+            <Share2 className="w-3 h-3 mr-2" />
+            Share →
+          </Button>
         </div>
 
-        {standup.nextPriorityTask && (
-          <div className="p-3 bg-secondary/50 rounded-md border border-border">
-            <div className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-1">Suggested Next Priority</div>
-            <div className="text-sm">{standup.nextPriorityTask}</div>
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex justify-between items-center bg-muted/20 border-t border-border pt-4">
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleCopy}>
-            <Copy className="mr-2 h-4 w-4" />
-            Copy Text
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleSlack} disabled={sendToSlackMutation.isPending}>
-            <Slack className="mr-2 h-4 w-4" />
-            {sendToSlackMutation.isPending ? "Sending..." : "Send to Slack"}
-          </Button>
-        </div>
         {onRegenerate && (
-          <Button variant="ghost" size="sm" onClick={onRegenerate} disabled={isRegenerating}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
-            Regenerate
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onRegenerate}
+            disabled={isRegenerating}
+            className="h-8 rounded-none font-mono text-[10px] uppercase tracking-wider text-[var(--accent-orange)] hover:bg-[var(--accent-orange-glow)] ml-auto"
+          >
+            <RefreshCw className={`w-3 h-3 mr-2 ${isRegenerating ? 'animate-spin' : ''}`} />
+            ↺ Regen
           </Button>
         )}
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
+  );
+}
+
+function Loader2(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
   );
 }

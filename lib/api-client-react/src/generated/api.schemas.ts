@@ -90,6 +90,27 @@ export interface Standup {
   createdAt: string;
 }
 
+export type PublicStandupAuthor = {
+  username: string;
+  /** @nullable */
+  avatarUrl?: string | null;
+};
+
+export interface PublicStandup {
+  id: number;
+  repoName: string;
+  date: string;
+  yesterday: string;
+  today: string;
+  blockers: string[];
+  /** @nullable */
+  nextPriorityTask?: string | null;
+  /** @nullable */
+  velocityScore?: number | null;
+  createdAt: string;
+  author: PublicStandupAuthor;
+}
+
 export interface GenerateStandupBody {
   repoName: string;
   /** ISO timestamp (defaults to 24h ago) */
@@ -135,6 +156,60 @@ export interface TestSlackBody {
   webhookUrl: string;
 }
 
+export type CoachChatMessageRole =
+  (typeof CoachChatMessageRole)[keyof typeof CoachChatMessageRole];
+
+export const CoachChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface CoachChatMessage {
+  role: CoachChatMessageRole;
+  content: string;
+}
+
+export interface CoachChatBody {
+  message: string;
+  conversationHistory?: CoachChatMessage[];
+  /** Optional repo to fetch activity context for */
+  repo?: string;
+}
+
+export interface CoachChatResponse {
+  reply: string;
+}
+
+export interface LinkedinPostBody {
+  standupId: number;
+}
+
+export interface LinkedinPostResponse {
+  post: string;
+}
+
+export interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+}
+
+export interface DayVelocity {
+  day: string;
+  avgVelocity: number;
+  count: number;
+}
+
+export interface PrCycleTime {
+  avgHours: number;
+  label: string;
+  color: string;
+}
+
+export interface Keyword {
+  word: string;
+  count: number;
+}
+
 export type GetGithubActivityParams = {
   /**
    * Full repo name (owner/repo)
@@ -151,4 +226,11 @@ export type GetGithubVelocityParams = {
    * Full repo name (owner/repo)
    */
   repo: string;
+};
+
+export type GetInsightsPrCycleTimeParams = {
+  /**
+   * Full repo name (owner/repo)
+   */
+  repo?: string;
 };

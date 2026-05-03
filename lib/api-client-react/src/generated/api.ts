@@ -17,16 +17,26 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  CoachChatBody,
+  CoachChatResponse,
+  DayVelocity,
   ErrorResponse,
   GenerateStandupBody,
   GetGithubActivityParams,
   GetGithubVelocityParams,
+  GetInsightsPrCycleTimeParams,
   GitHubActivity,
   GitHubRepo,
   HealthStatus,
+  Keyword,
+  LinkedinPostBody,
+  LinkedinPostResponse,
   MessageResponse,
+  PrCycleTime,
   Preferences,
+  PublicStandup,
   Standup,
+  StreakData,
   TestSlackBody,
   UpdatePreferencesBody,
   User,
@@ -866,6 +876,93 @@ export const useSendStandupToSlack = <
 };
 
 /**
+ * @summary Get a standup publicly (no auth required)
+ */
+export const getGetPublicStandupUrl = (id: number) => {
+  return `/api/standup/${id}/public`;
+};
+
+export const getPublicStandup = async (
+  id: number,
+  options?: RequestInit,
+): Promise<PublicStandup> => {
+  return customFetch<PublicStandup>(getGetPublicStandupUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPublicStandupQueryKey = (id: number) => {
+  return [`/api/standup/${id}/public`] as const;
+};
+
+export const getGetPublicStandupQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicStandup>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicStandup>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPublicStandupQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicStandup>>
+  > = ({ signal }) => getPublicStandup(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicStandup>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicStandupQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicStandup>>
+>;
+export type GetPublicStandupQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a standup publicly (no auth required)
+ */
+
+export function useGetPublicStandup<
+  TData = Awaited<ReturnType<typeof getPublicStandup>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicStandup>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicStandupQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get current user preferences
  */
 export const getGetPreferencesUrl = () => {
@@ -1111,3 +1208,501 @@ export const useTestSlackWebhook = <
 > => {
   return useMutation(getTestSlackWebhookMutationOptions(options));
 };
+
+/**
+ * @summary Chat with AI Sprint Coach
+ */
+export const getCoachChatUrl = () => {
+  return `/api/coach/chat`;
+};
+
+export const coachChat = async (
+  coachChatBody: CoachChatBody,
+  options?: RequestInit,
+): Promise<CoachChatResponse> => {
+  return customFetch<CoachChatResponse>(getCoachChatUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(coachChatBody),
+  });
+};
+
+export const getCoachChatMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof coachChat>>,
+    TError,
+    { data: BodyType<CoachChatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof coachChat>>,
+  TError,
+  { data: BodyType<CoachChatBody> },
+  TContext
+> => {
+  const mutationKey = ["coachChat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof coachChat>>,
+    { data: BodyType<CoachChatBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return coachChat(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CoachChatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof coachChat>>
+>;
+export type CoachChatMutationBody = BodyType<CoachChatBody>;
+export type CoachChatMutationError = ErrorType<void>;
+
+/**
+ * @summary Chat with AI Sprint Coach
+ */
+export const useCoachChat = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof coachChat>>,
+    TError,
+    { data: BodyType<CoachChatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof coachChat>>,
+  TError,
+  { data: BodyType<CoachChatBody> },
+  TContext
+> => {
+  return useMutation(getCoachChatMutationOptions(options));
+};
+
+/**
+ * @summary Generate a LinkedIn post from a standup
+ */
+export const getGenerateLinkedinPostUrl = () => {
+  return `/api/share/linkedin-post`;
+};
+
+export const generateLinkedinPost = async (
+  linkedinPostBody: LinkedinPostBody,
+  options?: RequestInit,
+): Promise<LinkedinPostResponse> => {
+  return customFetch<LinkedinPostResponse>(getGenerateLinkedinPostUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(linkedinPostBody),
+  });
+};
+
+export const getGenerateLinkedinPostMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateLinkedinPost>>,
+    TError,
+    { data: BodyType<LinkedinPostBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateLinkedinPost>>,
+  TError,
+  { data: BodyType<LinkedinPostBody> },
+  TContext
+> => {
+  const mutationKey = ["generateLinkedinPost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateLinkedinPost>>,
+    { data: BodyType<LinkedinPostBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateLinkedinPost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateLinkedinPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateLinkedinPost>>
+>;
+export type GenerateLinkedinPostMutationBody = BodyType<LinkedinPostBody>;
+export type GenerateLinkedinPostMutationError = ErrorType<void>;
+
+/**
+ * @summary Generate a LinkedIn post from a standup
+ */
+export const useGenerateLinkedinPost = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateLinkedinPost>>,
+    TError,
+    { data: BodyType<LinkedinPostBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateLinkedinPost>>,
+  TError,
+  { data: BodyType<LinkedinPostBody> },
+  TContext
+> => {
+  return useMutation(getGenerateLinkedinPostMutationOptions(options));
+};
+
+/**
+ * @summary Get current commit streak
+ */
+export const getGetInsightsStreakUrl = () => {
+  return `/api/insights/streak`;
+};
+
+export const getInsightsStreak = async (
+  options?: RequestInit,
+): Promise<StreakData> => {
+  return customFetch<StreakData>(getGetInsightsStreakUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInsightsStreakQueryKey = () => {
+  return [`/api/insights/streak`] as const;
+};
+
+export const getGetInsightsStreakQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInsightsStreak>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsStreak>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetInsightsStreakQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getInsightsStreak>>
+  > = ({ signal }) => getInsightsStreak({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsStreak>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInsightsStreakQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInsightsStreak>>
+>;
+export type GetInsightsStreakQueryError = ErrorType<void>;
+
+/**
+ * @summary Get current commit streak
+ */
+
+export function useGetInsightsStreak<
+  TData = Awaited<ReturnType<typeof getInsightsStreak>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsStreak>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInsightsStreakQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get best day of week by velocity
+ */
+export const getGetInsightsBestDayUrl = () => {
+  return `/api/insights/best-day`;
+};
+
+export const getInsightsBestDay = async (
+  options?: RequestInit,
+): Promise<DayVelocity[]> => {
+  return customFetch<DayVelocity[]>(getGetInsightsBestDayUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInsightsBestDayQueryKey = () => {
+  return [`/api/insights/best-day`] as const;
+};
+
+export const getGetInsightsBestDayQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInsightsBestDay>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsBestDay>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetInsightsBestDayQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getInsightsBestDay>>
+  > = ({ signal }) => getInsightsBestDay({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsBestDay>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInsightsBestDayQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInsightsBestDay>>
+>;
+export type GetInsightsBestDayQueryError = ErrorType<void>;
+
+/**
+ * @summary Get best day of week by velocity
+ */
+
+export function useGetInsightsBestDay<
+  TData = Awaited<ReturnType<typeof getInsightsBestDay>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsBestDay>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInsightsBestDayQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get average PR cycle time
+ */
+export const getGetInsightsPrCycleTimeUrl = (
+  params?: GetInsightsPrCycleTimeParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/insights/pr-cycle-time?${stringifiedParams}`
+    : `/api/insights/pr-cycle-time`;
+};
+
+export const getInsightsPrCycleTime = async (
+  params?: GetInsightsPrCycleTimeParams,
+  options?: RequestInit,
+): Promise<PrCycleTime> => {
+  return customFetch<PrCycleTime>(getGetInsightsPrCycleTimeUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInsightsPrCycleTimeQueryKey = (
+  params?: GetInsightsPrCycleTimeParams,
+) => {
+  return [`/api/insights/pr-cycle-time`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetInsightsPrCycleTimeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInsightsPrCycleTime>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetInsightsPrCycleTimeParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInsightsPrCycleTime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetInsightsPrCycleTimeQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getInsightsPrCycleTime>>
+  > = ({ signal }) =>
+    getInsightsPrCycleTime(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsPrCycleTime>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInsightsPrCycleTimeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInsightsPrCycleTime>>
+>;
+export type GetInsightsPrCycleTimeQueryError = ErrorType<void>;
+
+/**
+ * @summary Get average PR cycle time
+ */
+
+export function useGetInsightsPrCycleTime<
+  TData = Awaited<ReturnType<typeof getInsightsPrCycleTime>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetInsightsPrCycleTimeParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInsightsPrCycleTime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInsightsPrCycleTimeQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get top commit message keywords
+ */
+export const getGetInsightsTopKeywordsUrl = () => {
+  return `/api/insights/top-keywords`;
+};
+
+export const getInsightsTopKeywords = async (
+  options?: RequestInit,
+): Promise<Keyword[]> => {
+  return customFetch<Keyword[]>(getGetInsightsTopKeywordsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInsightsTopKeywordsQueryKey = () => {
+  return [`/api/insights/top-keywords`] as const;
+};
+
+export const getGetInsightsTopKeywordsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInsightsTopKeywords>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsTopKeywords>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetInsightsTopKeywordsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getInsightsTopKeywords>>
+  > = ({ signal }) => getInsightsTopKeywords({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsTopKeywords>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInsightsTopKeywordsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInsightsTopKeywords>>
+>;
+export type GetInsightsTopKeywordsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get top commit message keywords
+ */
+
+export function useGetInsightsTopKeywords<
+  TData = Awaited<ReturnType<typeof getInsightsTopKeywords>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInsightsTopKeywords>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInsightsTopKeywordsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

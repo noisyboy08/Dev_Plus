@@ -7,14 +7,16 @@ import { Home } from "@/pages/Home";
 import { Dashboard } from "@/pages/Dashboard";
 import { History } from "@/pages/History";
 import { Settings } from "@/pages/Settings";
+import { Insights } from "@/pages/Insights";
+import { SharePage } from "@/pages/SharePage";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-      refetchOnWindowFocus: false,
-    },
-  },
+const queryClient = new QueryClient({ 
+  defaultOptions: { 
+    queries: { 
+      retry: false, 
+      refetchOnWindowFocus: false 
+    } 
+  } 
 });
 
 function Router() {
@@ -22,8 +24,10 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/insights" component={Insights} />
       <Route path="/history" component={History} />
       <Route path="/settings" component={Settings} />
+      <Route path="/standup/:id/share" component={SharePage} />
       <Route component={NotFound} />
     </Switch>
   );

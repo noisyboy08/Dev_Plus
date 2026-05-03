@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useGetStandupHistory } from "@workspace/api-client-react";
-import { StandupCard, getVelocityColor } from "@/components/StandupCard";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription, DialogHeader } from "@/components/ui/dialog";
-import { Clock, Search, Filter } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+import { StandupCard } from "@/components/StandupCard";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogTrigger, 
+  DialogTitle, 
+  DialogHeader,
+  DialogDescription
+} from "@/components/ui/dialog";
+import { Search, Filter, Clock, ChevronRight } from "lucide-react";
 
 export function History() {
   const { data: history, isLoading } = useGetStandupHistory({});
@@ -30,105 +32,95 @@ export function History() {
 
   return (
     <AppLayout requireAuth>
-      <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Standup History</h1>
-          <p className="text-muted-foreground mt-1">Review your past daily updates and velocity trends.</p>
+      <div className="space-y-10">
+        <div className="animate-fade-up">
+          <h1 className="font-[Syne] font-semibold text-3xl text-[var(--text-primary)] tracking-tight">Standup History</h1>
+          <p className="text-[var(--text-secondary)] font-[DM_Sans] mt-2">A chronological record of your engineering updates.</p>
         </div>
 
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search content or repository..."
-                className="pl-9 bg-background"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+        <div className="flex flex-col md:flex-row gap-4 animate-fade-up-1">
+          <div className="relative flex-1 group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] group-focus-within:text-[var(--accent-orange)] transition-colors" />
+            <input
+              placeholder="Search content or repository..."
+              className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] rounded-lg pl-11 pr-4 py-3 text-sm font-mono text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-orange)]"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="w-full md:w-64">
+            <div className="relative group">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] group-focus-within:text-[var(--accent-orange)] transition-colors" />
+              <select 
+                value={repoFilter} 
+                onChange={(e) => setRepoFilter(e.target.value)}
+                className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] rounded-lg pl-11 pr-4 py-3 text-sm font-mono text-[var(--text-primary)] appearance-none focus:outline-none focus:ring-1 focus:ring-[var(--accent-orange)]"
+              >
+                <option value="all">All Repositories</option>
+                {repos.map(repo => (
+                  <option key={repo} value={repo}>{repo}</option>
+                ))}
+              </select>
             </div>
-            <div className="w-full md:w-64 flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={repoFilter} onValueChange={setRepoFilter}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="All Repositories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Repositories</SelectItem>
-                  {repos.map(repo => (
-                    <SelectItem key={repo} value={repo}>{repo}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {isLoading ? (
           <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <Card key={i} className="bg-card">
-                <CardContent className="p-6 flex justify-between items-center">
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-48" />
-                    <Skeleton className="h-4 w-32" />
-                  </div>
-                  <Skeleton className="h-8 w-16" />
-                </CardContent>
-              </Card>
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="shimmer h-20 rounded-xl border border-[var(--border-subtle)]" />
             ))}
           </div>
         ) : filteredHistory.length === 0 ? (
-          <Card className="bg-card border-dashed">
-            <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-              <Clock className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-medium">No standups found</h3>
-              <p className="text-muted-foreground mt-2 max-w-sm">
-                Try adjusting your search filters or go to the dashboard to generate a new standup.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-xl p-20 flex flex-col items-center justify-center text-center animate-fade-up-2">
+            <Clock className="w-12 h-12 text-[var(--text-muted)] mb-6" />
+            <h3 className="font-[Syne] font-bold text-xl text-[var(--text-primary)]">No updates found</h3>
+            <p className="text-[var(--text-secondary)] font-[DM_Sans] mt-2">Adjust your filters or generate a new standup from the dashboard.</p>
+          </div>
         ) : (
-          <div className="grid gap-4">
-            {filteredHistory.map(standup => (
+          <div className="space-y-3 animate-fade-up-2">
+            {filteredHistory.map((standup, i) => (
               <Dialog key={standup.id}>
                 <DialogTrigger asChild>
-                  <Card className="bg-card hover:bg-secondary/20 transition-colors cursor-pointer border-border">
-                    <CardContent className="p-5 flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-3 mb-1">
-                          <h3 className="font-semibold text-lg">
-                            {new Date(standup.date).toLocaleDateString(undefined, { 
-                              weekday: 'long', 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
-                          </h3>
-                          {standup.sentToSlack && (
-                            <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-500 border-blue-500/20">
-                              Sent to Slack
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground font-mono">{standup.repoName}</p>
+                  <div className="group bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-6 rounded-xl flex items-center justify-between cursor-pointer hover:border-[var(--accent-orange)]/50 transition-all duration-300">
+                    <div className="flex items-center gap-6">
+                      <div className="font-mono text-xs text-[var(--text-muted)] uppercase tracking-widest min-w-[120px]">
+                        {new Date(standup.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </div>
-                      
+                      <div className="h-4 w-px bg-[var(--border-subtle)]" />
+                      <div>
+                        <div className="font-[Syne] font-bold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] transition-colors">
+                          {standup.repoName}
+                        </div>
+                        <div className="text-[10px] font-mono text-[var(--text-muted)] mt-1 truncate max-w-md">
+                          {standup.today}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-8">
                       {standup.velocityScore != null && (
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Velocity</span>
-                          <Badge variant="outline" className={getVelocityColor(standup.velocityScore)}>
-                            {standup.velocityScore}/10
-                          </Badge>
+                        <div className="flex flex-col items-end">
+                          <div 
+                            className="font-[Syne] font-extrabold text-xl"
+                            style={{ 
+                              color: standup.velocityScore >= 8 ? 'var(--accent-green)' : 
+                                     standup.velocityScore >= 5 ? '#ffa500' : 'var(--accent-red)' 
+                            }}
+                          >
+                            {standup.velocityScore}
+                          </div>
+                          <div className="text-[8px] font-mono text-[var(--text-muted)] uppercase tracking-tighter">SCORE</div>
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
+                      <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
                 </DialogTrigger>
-                <DialogContent className="max-w-3xl border-border bg-background p-0 overflow-hidden">
+                <DialogContent className="max-w-3xl bg-[var(--bg-primary)] border-[var(--border-subtle)] p-0 overflow-hidden">
                   <DialogHeader className="sr-only">
-                    <DialogTitle>Standup for {new Date(standup.date).toLocaleDateString()}</DialogTitle>
-                    <DialogDescription>View the full standup details.</DialogDescription>
+                    <DialogTitle>Standup Details</DialogTitle>
+                    <DialogDescription>Full report for {standup.repoName}</DialogDescription>
                   </DialogHeader>
                   <div className="max-h-[85vh] overflow-y-auto">
                     <StandupCard standup={standup} />

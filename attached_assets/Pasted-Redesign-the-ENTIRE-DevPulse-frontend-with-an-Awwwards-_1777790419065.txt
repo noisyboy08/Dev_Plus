@@ -1,0 +1,259 @@
+Redesign the ENTIRE DevPulse frontend with an Awwwards-winning 
+aesthetic. This must look like it could win Site of the Day. 
+Every pixel must be intentional.
+
+=== DESIGN DIRECTION: "Dark Terminal Luxury" ===
+Think: Linear.app meets Vercel meets a Bloomberg terminal.
+Brutally precise. Typographically obsessed. Motion-rich but 
+never gimmicky. This is a tool for elite developers.
+
+=== FONTS (import from Google Fonts) ===
+- Display/Hero: "Space Mono" — monospace with personality
+- Headings: "Syne" — geometric, distinctive, bold
+- Body/UI: "DM Sans" — clean, modern, readable
+- Code/Data: "JetBrains Mono" — for commit messages, stats
+
+Add to index.html:
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+=== COLOR SYSTEM (CSS Variables in index.css) ===
+:root {
+  --bg-primary: #050507;        /* near black with blue tint */
+  --bg-secondary: #0c0c10;      /* card backgrounds */
+  --bg-tertiary: #13131a;       /* elevated surfaces */
+  --bg-glass: rgba(255,255,255,0.03); /* glass cards */
+  
+  --accent-orange: #ff5c00;     /* Replit brand, CTAs */
+  --accent-orange-glow: rgba(255, 92, 0, 0.15);
+  --accent-green: #00ff88;      /* success, online, velocity */
+  --accent-blue: #4488ff;       /* info, links */
+  --accent-red: #ff3355;        /* blockers, errors */
+  
+  --text-primary: #f0f0f5;
+  --text-secondary: #6e6e80;
+  --text-muted: #3a3a4a;
+  
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-accent: rgba(255,255,255,0.12);
+  
+  --gradient-hero: linear-gradient(135deg, #050507 0%, #0d0a14 50%, #050507 100%);
+  --gradient-orange: linear-gradient(135deg, #ff5c00, #ff2d55);
+  --gradient-card: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+}
+
+=== LANDING PAGE (Landing.jsx) ===
+
+Section 1 — HERO:
+- Full viewport height
+- Background: --bg-primary with a subtle animated grid 
+  (CSS grid lines using ::before pseudo element, 
+  1px lines, opacity 0.03, animate slowly moving upward)
+- Top-left corner: Small orange dot + "DevPulse" in Space Mono
+- Top-right: "Login with GitHub" button — ghost style, 
+  white border 1px, hover fills white, text inverts
+- Center: 
+  * Eyebrow text: "BUILT FOR DEVELOPERS" in JetBrains Mono, 
+    0.08em letter-spacing, --accent-orange, 11px, uppercase
+  * Hero headline: 3 lines, Syne 800, 72px desktop/40px mobile:
+    Line 1: "Your commits." (white)
+    Line 2: "Your standup." (white)  
+    Line 3: "Zero effort." (--accent-orange, italic)
+  * Subtitle: DM Sans 300, 18px, --text-secondary, max-width 480px, 
+    "DevPulse reads your GitHub and writes your standup in 
+    seconds. Powered by Claude AI."
+  * CTA: Large button, --gradient-orange background, 
+    "Login with GitHub →" Syne 600, 16px, 
+    padding 16px 40px, border-radius 4px (NOT rounded),
+    box-shadow: 0 0 40px var(--accent-orange-glow)
+    hover: scale(1.02), glow intensifies
+  * Below CTA: "Free forever · No credit card · 30 seconds to setup"
+    in JetBrains Mono 11px --text-muted
+- Bottom: Animated scroll indicator (bouncing arrow)
+- Right side (desktop only): Floating mockup of the StandupCard 
+  component, slightly rotated -3deg, with subtle shadow,
+  animate: float up/down 3s ease-in-out infinite
+
+Section 2 — FEATURES:
+- Background: --bg-secondary
+- Section heading: "Everything you hate about standups. Gone."
+  Syne 700, 48px, center aligned
+- 3 feature cards in a horizontal row:
+  * Each card: --bg-tertiary bg, 1px border --border-subtle,
+    border-radius 8px, padding 40px 32px
+  * Top: Large number "01" "02" "03" in Space Mono 64px, 
+    opacity 0.08, --text-primary (decorative)
+  * Icon: 40x40 square with --accent-orange-glow bg + orange icon SVG
+  * Title: Syne 600, 20px, white
+  * Body: DM Sans 400, 15px, --text-secondary, line-height 1.7
+  * Cards:
+    1. "30-Second Standups" — "Connect GitHub once. 
+       DevPulse reads every commit, PR, and issue 
+       from the last 24 hours and generates your 
+       standup in your voice."
+    2. "AI Sprint Coach" — "Ask your coach anything. 
+       Which PR needs attention? Am I on track? 
+       Write a manager update. Claude knows your 
+       entire codebase context."
+    3. "Velocity Intelligence" — "Track your streaks, 
+       PR cycle time, and peak performance days. 
+       Become measurably better every week."
+  * Hover: card lifts (translateY -4px), border becomes 
+    --border-accent, subtle orange top border appears 
+    (border-top: 2px solid var(--accent-orange))
+
+Section 3 — LIVE DEMO ANIMATION:
+- Dark terminal-style window (--bg-tertiary, rounded 12px)
+- Window chrome: 3 dots (red/yellow/green, 8px circles) top left
+- Window title: "devpulse — dashboard" in JetBrains Mono center
+- Inside: Animated "standup being generated" using CSS 
+  typewriter animation on text, showing:
+  * Left panel: fake commits scrolling in with green dots
+  * Right panel: standup text appearing letter by letter
+- Use CSS @keyframes for the typewriter effect
+
+Section 4 — SOCIAL PROOF:
+- Dark background, centered
+- Giant number: "1,247+" Syne 800, 96px, --accent-orange
+- Below: "developers ship faster with DevPulse"
+- Row of 5 fake avatar circles (initial-based, --accent-blue bg)
+- Quote: "Finally, a standup tool that doesn't feel like 
+  a chore." — in JetBrains Mono, italic
+
+Section 5 — FOOTER CTA:
+- Full-width dark band
+- "Ready to never write a standup again?"
+- Big login button
+- "Built for Replit 10 Year Buildathon · Powered by Claude AI"
+
+=== DASHBOARD PAGE (Dashboard.jsx) ===
+
+Layout: 
+- Left sidebar: 240px wide, --bg-secondary, full height
+  * DevPulse logo top (orange square + text)
+  * Nav items with icons: Dashboard, Insights, History, Settings
+  * Active state: orange left border + slightly lighter bg
+  * Bottom: User avatar + username + "Logout" 
+- Main content: flex-1, --bg-primary, padding 32px
+
+Top bar of main content:
+- Left: "Good morning, {username} ☀️" — Syne 600, 24px
+- Center: Repo selector — styled as a dark pill dropdown,
+  JetBrains Mono font, orange chevron icon
+- Right: "Generate Standup" button — --gradient-orange,
+  Syne 600, padding 12px 28px, glow on hover
+
+Standup Card (the hero element):
+- Large card, --bg-secondary bg, 1px --border-subtle border,
+  border-radius 12px
+- Top row: Date in JetBrains Mono + Velocity Score badge 
+  (large circle, color-coded, Syne 800 font for number)
+- Sections layout: 2-column grid
+  * Yesterday: left column, top
+  * Today: right column, top  
+  * Blockers: full width, red left border (4px), 
+    --accent-red tinted background if blockers exist
+  * Priority Task: full width, orange border, 
+    pill-styled with lightning bolt icon
+- Each section label: JetBrains Mono 10px uppercase, 
+  --text-muted, letter-spacing 0.15em
+- Content text: DM Sans 400, 15px, --text-secondary, 
+  line-height 1.8
+- Bottom actions row:
+  * "Copy" button (ghost)
+  * "Send to Slack" button (ghost with Slack green tint)
+  * "Share →" button (ghost)
+  * "Regenerate ↺" button (ghost, right-aligned)
+  * All buttons: JetBrains Mono 12px, padding 8px 16px,
+    border 1px --border-subtle, hover: --border-accent,
+    border-radius 4px
+
+Velocity Chart (below standup card):
+- Title: "7-Day Velocity" Syne 600, 16px
+- Recharts BarChart, dark themed:
+  * Background: transparent
+  * Bars: --accent-orange with 20% opacity fill,
+    hover: full --accent-orange
+  * Grid lines: --border-subtle, horizontal only
+  * X axis: JetBrains Mono, 11px, --text-muted
+  * Y axis: hidden
+  * Tooltip: --bg-tertiary bg, --border-accent border,
+    DM Sans font
+
+AI Coach Drawer:
+- Slides in from the RIGHT side (fixed position, 380px wide)
+- Opens via "Ask AI Coach" button in top navbar
+- Header: "AI Sprint Coach" Syne 600 + close button
+- Chat messages:
+  * User: right-aligned, --accent-orange-glow bg, 
+    DM Sans 14px, border-radius 12px 12px 2px 12px
+  * AI: left-aligned, --bg-tertiary bg,
+    border-radius 12px 12px 12px 2px
+  * AI has small orange "D" avatar circle
+- Suggestion chips below input (shown when empty):
+  * Pill buttons: "Am I on track? →" etc.
+  * JetBrains Mono 12px, --bg-tertiary, orange border
+- Input: full width, --bg-secondary, JetBrains Mono 13px,
+  orange focus border glow
+- Typing indicator: 3 animated dots, --accent-orange
+
+=== INSIGHTS PAGE ===
+4 large stat cards in 2x2 grid:
+- Streak: huge flame icon + number, Syne 800, 64px
+- Best Day: small inline bar chart
+- PR Cycle Time: colored badge (green/yellow/red)
+- Commit Topics: word cloud using different font sizes
+
+=== ANIMATIONS & MICRO-INTERACTIONS ===
+Add these CSS animations globally:
+
+1. Page load: staggered fade-up for all cards
+   @keyframes fadeUp {
+     from { opacity: 0; transform: translateY(20px); }
+     to { opacity: 1; transform: translateY(0); }
+   }
+   Apply with animation-delay: 0.1s, 0.2s, 0.3s etc.
+
+2. Standup generating: skeleton loading shimmer on card 
+   while waiting for Claude API response
+
+3. Button hover: all primary buttons get subtle glow pulse
+
+4. Sidebar nav hover: smooth background transition + 
+   slight translateX(4px) on the text
+
+5. Number counter: velocity score animates counting up 
+   from 0 to final value when card loads (JS)
+
+6. Gradient hero bg: very slow rotation 
+   (20s linear infinite) on the background gradient
+
+=== SHARE PAGE (/standup/:id/share) ===
+Standalone page, no auth required.
+- Dark gradient bg: radial-gradient from dark purple 
+  center to near-black edges
+- Centered card, max-width 560px, glass morphism effect:
+  backdrop-filter: blur(20px)
+  background: rgba(255,255,255,0.05)
+  border: 1px solid rgba(255,255,255,0.1)
+  border-radius: 20px
+  padding: 40px
+- Top: avatar + username + "Daily Standup" + date
+- Velocity score: huge number, center, --accent-orange, Syne 800
+- Sections in clean rows with left-border accents
+- Bottom: "Generated by DevPulse · Powered by Claude AI"
+  with subtle DevPulse logo
+- This page MUST look incredible when screenshot — 
+  it's the viral sharing mechanism
+
+=== OVERALL RULES ===
+- Zero rounded corners over 12px except share page card (20px)
+- No white backgrounds anywhere
+- Every interactive element must have a hover state
+- Loading states must be beautiful (skeleton shimmer, 
+  not just spinners)
+- Mobile responsive: sidebar collapses to bottom tab bar
+- Scrollbars: custom styled (2px, --accent-orange thumb)
+- Selection color: --accent-orange background
+
+This must look like a $10M funded startup's product, 
+not a hackathon project. Every detail matters.

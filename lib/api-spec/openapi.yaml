@@ -20,6 +20,12 @@ tags:
     description: User preferences
   - name: slack
     description: Slack integration
+  - name: coach
+    description: AI Sprint Coach
+  - name: share
+    description: Sharing features
+  - name: insights
+    description: Velocity insights
 paths:
   /healthz:
     get:
@@ -212,6 +218,27 @@ paths:
         "400":
           description: No Slack webhook configured
 
+  /standup/{id}/public:
+    get:
+      operationId: getPublicStandup
+      tags: [standup]
+      summary: Get a standup publicly (no auth required)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Public standup with author info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicStandup"
+        "404":
+          description: Not found
+
   /preferences:
     get:
       operationId: getPreferences
@@ -260,6 +287,119 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+
+  /coach/chat:
+    post:
+      operationId: coachChat
+      tags: [coach]
+      summary: Chat with AI Sprint Coach
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoachChatBody"
+      responses:
+        "200":
+          description: Coach reply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachChatResponse"
+        "401":
+          description: Not authenticated
+
+  /share/linkedin-post:
+    post:
+      operationId: generateLinkedinPost
+      tags: [share]
+      summary: Generate a LinkedIn post from a standup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkedinPostBody"
+      responses:
+        "200":
+          description: Generated LinkedIn post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkedinPostResponse"
+        "401":
+          description: Not authenticated
+
+  /insights/streak:
+    get:
+      operationId: getInsightsStreak
+      tags: [insights]
+      summary: Get current commit streak
+      responses:
+        "200":
+          description: Streak data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreakData"
+        "401":
+          description: Not authenticated
+
+  /insights/best-day:
+    get:
+      operationId: getInsightsBestDay
+      tags: [insights]
+      summary: Get best day of week by velocity
+      responses:
+        "200":
+          description: Best day analysis
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DayVelocity"
+        "401":
+          description: Not authenticated
+
+  /insights/pr-cycle-time:
+    get:
+      operationId: getInsightsPrCycleTime
+      tags: [insights]
+      summary: Get average PR cycle time
+      parameters:
+        - name: repo
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Full repo name (owner/repo)
+      responses:
+        "200":
+          description: PR cycle time data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrCycleTime"
+        "401":
+          description: Not authenticated
+
+  /insights/top-keywords:
+    get:
+      operationId: getInsightsTopKeywords
+      tags: [insights]
+      summary: Get top commit message keywords
+      responses:
+        "200":
+          description: Top keywords
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Keyword"
+        "401":
+          description: Not authenticated
 
 components:
   schemas:
@@ -461,6 +601,48 @@ components:
         - sentToSlack
         - createdAt
 
+    PublicStandup:
+      type: object
+      properties:
+        id:
+          type: integer
+        repoName:
+          type: string
+        date:
+          type: string
+        yesterday:
+          type: string
+        today:
+          type: string
+        blockers:
+          type: array
+          items:
+            type: string
+        nextPriorityTask:
+          type: ["string", "null"]
+        velocityScore:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+        author:
+          type: object
+          properties:
+            username:
+              type: string
+            avatarUrl:
+              type: ["string", "null"]
+          required:
+            - username
+      required:
+        - id
+        - repoName
+        - date
+        - yesterday
+        - today
+        - blockers
+        - createdAt
+        - author
+
     GenerateStandupBody:
       type: object
       properties:
@@ -506,3 +688,104 @@ components:
           type: string
       required:
         - webhookUrl
+
+    CoachChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    CoachChatBody:
+      type: object
+      properties:
+        message:
+          type: string
+        conversationHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoachChatMessage"
+        repo:
+          type: string
+          description: Optional repo to fetch activity context for
+      required:
+        - message
+
+    CoachChatResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+      required:
+        - reply
+
+    LinkedinPostBody:
+      type: object
+      properties:
+        standupId:
+          type: integer
+      required:
+        - standupId
+
+    LinkedinPostResponse:
+      type: object
+      properties:
+        post:
+          type: string
+      required:
+        - post
+
+    StreakData:
+      type: object
+      properties:
+        currentStreak:
+          type: integer
+        longestStreak:
+          type: integer
+      required:
+        - currentStreak
+        - longestStreak
+
+    DayVelocity:
+      type: object
+      properties:
+        day:
+          type: string
+        avgVelocity:
+          type: number
+        count:
+          type: integer
+      required:
+        - day
+        - avgVelocity
+        - count
+
+    PrCycleTime:
+      type: object
+      properties:
+        avgHours:
+          type: number
+        label:
+          type: string
+        color:
+          type: string
+      required:
+        - avgHours
+        - label
+        - color
+
+    Keyword:
+      type: object
+      properties:
+        word:
+          type: string
+        count:
+          type: integer
+      required:
+        - word
+        - count

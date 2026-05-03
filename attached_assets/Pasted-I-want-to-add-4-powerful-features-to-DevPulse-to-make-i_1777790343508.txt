@@ -1,0 +1,112 @@
+I want to add 4 powerful features to DevPulse to make it 
+stand out in the hackathon. Add these one by one:
+
+=== FEATURE 1: AI Sprint Coach Chat ===
+Add a chat panel on the right side of the dashboard.
+
+UI: A slide-in chat drawer (hidden by default, opens when 
+clicking "Ask AI Coach" button in top navbar).
+Design: Dark themed, chat bubbles — user on right (orange), 
+AI on left (gray). Show typing indicator while waiting.
+
+Backend: POST /api/coach/chat
+- Accept { message, conversationHistory[] }
+- Include user's last 24h GitHub activity as system context
+- Use Claude with this system prompt:
+  "You are DevPulse AI Coach — a senior engineering mentor 
+   who has full context of this developer's recent GitHub 
+   activity: {inject commits, PRs, issues here}. 
+   Answer questions about their code, productivity, sprint 
+   progress, and career. Be direct, specific, and 
+   encouraging. Keep responses under 150 words unless 
+   asked for more detail."
+- Stream the response (use SSE or just await full response)
+- Maintain last 10 messages as conversation history in 
+  frontend state
+
+Starter questions to show as suggestion chips:
+- "Am I on track this sprint?"
+- "Which PR needs attention?"  
+- "Write a manager update email"
+- "What did I ship this week?"
+
+=== FEATURE 2: Velocity Insights Page ===
+Add a new page /insights with these 4 cards:
+
+Card 1 — Streak Tracker
+- Count consecutive days with at least 1 commit
+- Show flame emoji 🔥 and "X day streak"
+- Store in DB, reset if no commits for a day
+
+Card 2 — Best Day of Week
+- Analyze standup history to find which weekday has 
+  highest average velocity score
+- Show bar chart with Mon-Fri
+
+Card 3 — PR Cycle Time
+- Average time from PR open → PR merged (in hours)
+- Pull from GitHub API for last 10 merged PRs
+- Color code: green < 24h, yellow < 72h, red > 72h
+
+Card 4 — Top Keywords
+- Extract most common words from commit messages 
+  (exclude: fix, the, a, add, update)
+- Show as a tag cloud using different font sizes
+
+=== FEATURE 3: One-Click LinkedIn Post Generator ===
+Add a "Share to LinkedIn" button on the StandupCard.
+
+When clicked:
+- Call POST /api/share/linkedin-post
+- Claude generates a professional LinkedIn post from 
+  the standup data using this prompt:
+  "Convert this developer standup into a short, 
+   engaging LinkedIn post (max 150 words). 
+   Make it sound proud but not boastful. 
+   Add 3 relevant hashtags at the end. 
+   Focus on impact and what was shipped."
+- Show the result in a modal with a "Copy" button 
+  and a direct link: 
+  https://www.linkedin.com/sharing/share-offsite/?url=
+  (pre-fill with app URL)
+
+=== FEATURE 4: Beautiful Public Standup Share Page ===
+Add a shareable public URL: /standup/{standup_id}/share
+
+This page:
+- Shows the standup in a beautiful card design
+- Dark gradient background (black to dark gray)  
+- Shows: username + avatar, date, repo name, 
+  all standup sections, velocity score as big number
+- Add "Built with DevPulse" watermark at bottom 
+  with link to your app
+- NO login required to view
+- Add an "og:image" meta tag so it looks good 
+  when shared on Twitter/Slack/LinkedIn
+- Add a "Copy Link" button on the dashboard 
+  StandupCard that copies this URL
+
+Make the share page look like a premium product card —
+think Vercel deployment cards or GitHub contribution 
+graphs. This is the viral growth loop.
+
+=== LANDING PAGE UPGRADE ===
+Redesign the landing page to include:
+1. Hero: Headline "Your AI Engineering Coach. 
+   Built into your workflow." 
+   Subtext: "DevPulse reads your GitHub activity and 
+   writes your standup, flags blockers, and coaches 
+   you — in seconds."
+2. Live demo section: Show a fake but realistic 
+   animated standup being "generated" (typewriter 
+   effect, fake commits scrolling in)
+3. 3 feature cards with icons:
+   - ⚡ 30-second standups from real GitHub data
+   - 🤖 AI Coach that knows your codebase  
+   - 📊 Velocity insights that make you 10x better
+4. Social proof section: "Join 100+ developers" 
+   (hardcode this for the hackathon demo)
+5. Footer with GitHub link and "Built for Replit 
+   10 Year Buildathon"
+
+Keep the orange + dark theme consistent throughout.

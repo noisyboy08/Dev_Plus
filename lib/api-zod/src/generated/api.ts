@@ -182,6 +182,29 @@ export const SendStandupToSlackResponse = zod.object({
 });
 
 /**
+ * @summary Get a standup publicly (no auth required)
+ */
+export const GetPublicStandupParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetPublicStandupResponse = zod.object({
+  id: zod.number(),
+  repoName: zod.string(),
+  date: zod.string(),
+  yesterday: zod.string(),
+  today: zod.string(),
+  blockers: zod.array(zod.string()),
+  nextPriorityTask: zod.string().nullish(),
+  velocityScore: zod.number().nullish(),
+  createdAt: zod.string(),
+  author: zod.object({
+    username: zod.string(),
+    avatarUrl: zod.string().nullish(),
+  }),
+});
+
+/**
  * @summary Get current user preferences
  */
 export const GetPreferencesResponse = zod.object({
@@ -217,3 +240,81 @@ export const TestSlackWebhookBody = zod.object({
 export const TestSlackWebhookResponse = zod.object({
   message: zod.string(),
 });
+
+/**
+ * @summary Chat with AI Sprint Coach
+ */
+export const CoachChatBody = zod.object({
+  message: zod.string(),
+  conversationHistory: zod
+    .array(
+      zod.object({
+        role: zod.enum(["user", "assistant"]),
+        content: zod.string(),
+      }),
+    )
+    .optional(),
+  repo: zod
+    .string()
+    .optional()
+    .describe("Optional repo to fetch activity context for"),
+});
+
+export const CoachChatResponse = zod.object({
+  reply: zod.string(),
+});
+
+/**
+ * @summary Generate a LinkedIn post from a standup
+ */
+export const GenerateLinkedinPostBody = zod.object({
+  standupId: zod.number(),
+});
+
+export const GenerateLinkedinPostResponse = zod.object({
+  post: zod.string(),
+});
+
+/**
+ * @summary Get current commit streak
+ */
+export const GetInsightsStreakResponse = zod.object({
+  currentStreak: zod.number(),
+  longestStreak: zod.number(),
+});
+
+/**
+ * @summary Get best day of week by velocity
+ */
+export const GetInsightsBestDayResponseItem = zod.object({
+  day: zod.string(),
+  avgVelocity: zod.number(),
+  count: zod.number(),
+});
+export const GetInsightsBestDayResponse = zod.array(
+  GetInsightsBestDayResponseItem,
+);
+
+/**
+ * @summary Get average PR cycle time
+ */
+export const GetInsightsPrCycleTimeQueryParams = zod.object({
+  repo: zod.coerce.string().optional().describe("Full repo name (owner\/repo)"),
+});
+
+export const GetInsightsPrCycleTimeResponse = zod.object({
+  avgHours: zod.number(),
+  label: zod.string(),
+  color: zod.string(),
+});
+
+/**
+ * @summary Get top commit message keywords
+ */
+export const GetInsightsTopKeywordsResponseItem = zod.object({
+  word: zod.string(),
+  count: zod.number(),
+});
+export const GetInsightsTopKeywordsResponse = zod.array(
+  GetInsightsTopKeywordsResponseItem,
+);

@@ -1,0 +1,127 @@
+The GitHub OAuth callback is returning 500. I can see two 
+exact errors in the browser console:
+
+1. "Failed to load resource: server responded with status 500"
+   on the callback URL
+2. Content Security Policy blocking replit-cdn script
+
+Fix all of these right now:
+
+STEP 1 - Add detailed error logging to the callback route.
+In the GitHub callback handler, wrap everything in try/catch
+and log the FULL error:
+
+app.get('/api/auth/github/callback', async (req, res) => {
+  try {
+    console.log('=== CALLBACK HIT ===');
+    console.log('Query params:', req.query);
+    console.log('Session:', req.session);
+    
+    const { code, state } = req.query;
+    
+    if (!code) {
+      console.log('ERROR: No code received');
+      return res.status(400).send('No code received from GitHub');
+    }
+    
+    console.log('Exchanging code for token...');
+    const tokenResponse = await fetch(
+      'https://github.com/login/oauth/access_token',
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          client_id: process.env.GITHUB_CLIENT_ID,
+          client_secret: process.env.GITHUB_CLIENT_SECRET,
+          code: code,
+          redirect_uri: process.env.GITHUB_CALLBACK_URL
+        })
+      }
+    );
+    
+    const tokenData = await tokenResponse.json();
+    console.log('Token response:', JSON.stringify(tokenData));
+    
+    if (tokenData.error) {
+      console.log('GitHub error:', tokenData.error, tokenData.error_description);
+      return res.status(500).send(`GitHub error: ${tokenData.error_description}`);
+    }
+    
+    const accessToken = tokenData.access_token;
+    
+    const userResponse = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    
+    const userData = await userResponse.json();
+    console.log('User data:', userData.login, userData.id);
+    
+    req.session.userId = userData.id;
+    req.session.user = {
+      id: userData.id,
+      login: userData.login,
+      avatar_url: userData.avatar_url,
+      access_token: accessToken
+    };
+    
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    
+    console.log('Session saved, redirecting to dashboard');
+    res.redirect('/dashboard');
+    
+  } catch (error) {
+    console.error('=== CALLBACK ERROR ===');
+    console.error(error);
+    res.status(500).send(`Auth error: ${error.message}`);
+  }
+});
+
+STEP 2 - Make sure these environment variables exist and 
+are being read correctly. Add this debug route temporarily:
+
+app.get('/api/debug-env', (req, res) => {
+  res.json({
+    hasClientId: !!process.env.GITHUB_CLIENT_ID,
+    hasClientSecret: !!process.env.GITHUB_CLIENT_SECRET,
+    hasCallbackUrl: !!process.env.GITHUB_CALLBACK_URL,
+    callbackUrl: process.env.GITHUB_CALLBACK_URL,
+    nodeEnv: process.env.NODE_ENV
+  });
+});
+
+STEP 3 - Fix Content Security Policy. Add this helmet 
+configuration in app.ts/index.ts:
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 
+                  "https://replit-cdn.com", 
+                  "https://*.replit.com"],
+      connectSrc: ["'self'", "https://api.github.com",
+                   "https://github.com"],
+    }
+  }
+}));
+
+STEP 4 - Set GITHUB_CALLBACK_URL as a secret in Replit:
+Key: GITHUB_CALLBACK_URL
+Value: https://dev-pulse--udaydolas08.replit.app/api/auth/github/callback
+
+After deploying, visit:
+https://dev-pulse--udaydolas08.replit.app/api/debug-env
+
+And show me what it returns so I can confirm the secrets 
+are loading correctly.

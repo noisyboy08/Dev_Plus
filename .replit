@@ -30,9 +30,3 @@ externalPort = 80
 [[ports]]
 localPort = 21976
 externalPort = 3000
-
-[userenv]
-
-[userenv.shared]
-GITHUB_CALLBACK_URL = "https://dev-pulse--udaydolas08.replit.app/api/auth/github/callback"
-CLIENT_URL = "https://dev-pulse--udaydolas08.replit.app"

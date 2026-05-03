@@ -1,0 +1,196 @@
+Build a full-stack SaaS web app called "DevPulse" — an AI-powered Daily Standup 
+& Sprint Intelligence tool for developers.
+
+=== TECH STACK ===
+- Frontend: React + Vite + TailwindCSS
+- Backend: Node.js + Express
+- Database: SQLite (via better-sqlite3) for simplicity
+- AI: Anthropic Claude API (claude-sonnet-4-20250514)
+- Auth: GitHub OAuth (via passport.js + passport-github2)
+- External APIs: GitHub REST API v3
+- Environment: .env file for secrets
+
+=== FOLDER STRUCTURE ===
+devpulse/
+├── client/                        # React frontend
+│   ├── public/
+│   │   └── favicon.ico
+│   ├── src/
+│   │   ├── assets/                # Icons, images
+│   │   ├── components/
+│   │   │   ├── ui/                # Reusable: Button, Card, Badge, Spinner
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── StandupCard.jsx    # Today's AI standup output
+│   │   │   ├── BlockerAlert.jsx   # Red flag blockers
+│   │   │   ├── VelocityChart.jsx  # Commits/PRs over 7 days (recharts)
+│   │   │   └── RepoSelector.jsx   # Dropdown to pick GitHub repo
+│   │   ├── pages/
+│   │   │   ├── Landing.jsx        # Marketing landing page
+│   │   │   ├── Dashboard.jsx      # Main app after login
+│   │   │   ├── History.jsx        # Past standups list
+│   │   │   └── Settings.jsx       # Slack webhook URL, preferences
+│   │   ├── hooks/
+│   │   │   ├── useStandup.js      # Fetch/generate standup
+│   │   │   └── useGitHub.js       # Fetch repos, commits, PRs
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx    # GitHub user session state
+│   │   ├── utils/
+│   │   │   └── api.js             # Axios instance pointing to backend
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── index.css              # Tailwind base
+│   ├── index.html
+│   ├── vite.config.js
+│   └── tailwind.config.js
+│
+├── server/                        # Express backend
+│   ├── routes/
+│   │   ├── auth.js                # GET /auth/github, /auth/github/callback, /auth/me, /auth/logout
+│   │   ├── standup.js             # POST /api/standup/generate, GET /api/standup/history
+│   │   ├── github.js              # GET /api/github/repos, /api/github/activity
+│   │   └── slack.js               # POST /api/slack/send
+│   ├── services/
+│   │   ├── claudeService.js       # All Anthropic API calls
+│   │   ├── githubService.js       # GitHub API wrapper functions
+│   │   └── slackService.js        # Slack webhook sender
+│   ├── middleware/
+│   │   ├── auth.js                # requireAuth middleware
+│   │   └── errorHandler.js
+│   ├── db/
+│   │   ├── schema.sql             # Tables: users, standups, preferences
+│   │   └── database.js            # SQLite connection + init
+│   ├── config/
+│   │   └── passport.js            # GitHub OAuth strategy
+│   └── index.js                   # Express app entry point
+│
+├── .env.example
+├── .env                           # Never commit this
+├── package.json                   # Root: concurrently runs client + server
+└── README.md
+
+=== DATABASE SCHEMA ===
+Table: users
+  - id INTEGER PRIMARY KEY
+  - github_id TEXT UNIQUE
+  - username TEXT
+  - avatar_url TEXT
+  - access_token TEXT (encrypted)
+  - created_at DATETIME
+
+Table: standups
+  - id INTEGER PRIMARY KEY
+  - user_id INTEGER (FK → users)
+  - repo_name TEXT
+  - date DATE
+  - yesterday TEXT (AI generated)
+  - today TEXT (AI generated)
+  - blockers TEXT (AI generated JSON array)
+  - next_task TEXT (AI generated)
+  - raw_activity TEXT (JSON of commits/PRs)
+  - sent_to_slack BOOLEAN DEFAULT false
+  - created_at DATETIME
+
+Table: preferences
+  - user_id INTEGER PRIMARY KEY (FK → users)
+  - slack_webhook_url TEXT
+  - standup_tone TEXT DEFAULT 'professional' (professional/casual/bullet-points)
+  - default_repo TEXT
+
+=== CORE FEATURES TO BUILD ===
+
+1. GITHUB OAUTH LOGIN
+   - Login with GitHub button on landing page
+   - Store user + access_token in DB and session
+   - Redirect to /dashboard after login
+
+2. GITHUB ACTIVITY FETCHER (githubService.js)
+   - List user's repos via GET /user/repos
+   - Fetch commits from last 24h: GET /repos/{owner}/{repo}/commits?since=yesterday
+   - Fetch PRs: GET /repos/{owner}/{repo}/pulls?state=all&sort=updated
+   - Fetch issues: GET /repos/{owner}/{repo}/issues?state=open
+   - Return structured JSON: { commits: [], prs: [], issues: [] }
+
+3. AI STANDUP GENERATOR (claudeService.js)
+   Use this exact Claude prompt structure:
+
+   System: "You are a senior engineering standup assistant. 
+   Generate concise, professional daily standup updates from 
+   GitHub activity data. Always respond in valid JSON only."
+
+   User: `
+   Based on this GitHub activity from the last 24 hours, generate a standup:
+   
+   Commits: {commits list with messages}
+   Pull Requests: {pr titles and statuses}  
+   Open Issues: {issue titles}
+   User's tone preference: {professional/casual/bullet-points}
+   
+   Respond ONLY with this JSON structure, no markdown:
+   {
+     "yesterday": "What I did yesterday (2-3 sentences)",
+     "today": "What I plan to do today (2-3 sentences)",
+     "blockers": ["blocker 1 if any", "blocker 2 if any"],
+     "next_priority_task": "Single most important task based on open issues/PRs",
+     "velocity_score": 7  // 1-10 score of yesterday's productivity
+   }
+   `
+
+4. DASHBOARD UI
+   - Top: "Good morning {username}" + date
+   - Repo selector dropdown
+   - Big "Generate Today's Standup" button
+   - StandupCard showing: Yesterday / Today / Blockers / Priority Task
+   - Velocity score badge (color coded: green=8-10, yellow=5-7, red=1-4)
+   - VelocityChart: bar chart of commits per day (last 7 days) using recharts
+   - "Copy to Clipboard" button
+   - "Send to Slack" button (if webhook configured)
+   - "Regenerate" button
+
+5. HISTORY PAGE
+   - List of all past standups (date, repo, velocity score)
+   - Click to expand and see full standup
+
+6. SETTINGS PAGE
+   - Slack webhook URL input + test button
+   - Standup tone selector (Professional / Casual / Bullet Points)
+   - Default repo selector
+
+=== UI DESIGN REQUIREMENTS ===
+- Dark theme: background #0f0f0f, cards #1a1a1a, borders #2a2a2a
+- Accent color: orange #f97316 (matching Replit's brand)
+- Font: Inter (via Google Fonts)
+- Landing page must have: Hero section, 3 feature cards, "Login with GitHub" CTA
+- Dashboard must feel like a real SaaS product (not a hackathon project)
+- Fully responsive (mobile + desktop)
+- Use recharts for the velocity bar chart
+- Smooth loading states with spinners
+
+=== ENVIRONMENT VARIABLES NEEDED (.env) ===
+GITHUB_CLIENT_ID=your_github_oauth_app_client_id
+GITHUB_CLIENT_SECRET=your_github_oauth_app_client_secret
+GITHUB_CALLBACK_URL=http://localhost:3000/auth/github/callback
+ANTHROPIC_API_KEY=your_anthropic_api_key
+SESSION_SECRET=any_random_long_string
+PORT=3000
+CLIENT_URL=http://localhost:5173
+
+=== PACKAGE.JSON ROOT SCRIPTS ===
+"dev": "concurrently \"npm run server\" \"npm run client\"",
+"server": "cd server && node index.js",
+"client": "cd client && vite"
+
+=== IMPORTANT IMPLEMENTATION NOTES ===
+- Use express-session for session management
+- CORS: allow localhost:5173 from localhost:3000
+- All /api/* routes must use requireAuth middleware
+- GitHub activity fetch should default to last 24 hours (use ISO timestamp)
+- If no commits found, Claude should still generate a standup saying 
+  "No commits today — planning and review day"
+- Slack send: POST to webhook with this body:
+  { "text": "📋 *DevPulse Standup — {date}*\n\n*Yesterday:* {yesterday}\n*Today:* {today}\n*Blockers:* {blockers}" }
+- Handle Claude API errors gracefully with fallback message
+- Store standup history — max 30 per user (delete older ones)
+
+Start by creating the full folder structure, then implement 
+backend first (auth → github service → claude service → routes), 
+then frontend. Make it production-quality.

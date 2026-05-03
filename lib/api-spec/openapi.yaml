@@ -3,13 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: DevPulse API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: github
+    description: GitHub data operations
+  - name: standup
+    description: Standup generation and history
+  - name: preferences
+    description: User preferences
+  - name: slack
+    description: Slack integration
 paths:
   /healthz:
     get:
@@ -24,6 +34,233 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout current user
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /github/repos:
+    get:
+      operationId: getGithubRepos
+      tags: [github]
+      summary: List user's GitHub repositories
+      responses:
+        "200":
+          description: List of repositories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GitHubRepo"
+        "401":
+          description: Not authenticated
+
+  /github/activity:
+    get:
+      operationId: getGithubActivity
+      tags: [github]
+      summary: Get GitHub activity for a repository
+      parameters:
+        - name: repo
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Full repo name (owner/repo)
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO timestamp to fetch activity since
+      responses:
+        "200":
+          description: GitHub activity data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubActivity"
+        "401":
+          description: Not authenticated
+
+  /github/velocity:
+    get:
+      operationId: getGithubVelocity
+      tags: [github]
+      summary: Get commit velocity for last 7 days
+      parameters:
+        - name: repo
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Full repo name (owner/repo)
+      responses:
+        "200":
+          description: Velocity data by day
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VelocityDay"
+
+  /standup/generate:
+    post:
+      operationId: generateStandup
+      tags: [standup]
+      summary: Generate AI standup from GitHub activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateStandupBody"
+      responses:
+        "200":
+          description: Generated standup
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Standup"
+        "401":
+          description: Not authenticated
+
+  /standup/history:
+    get:
+      operationId: getStandupHistory
+      tags: [standup]
+      summary: Get standup history for current user
+      responses:
+        "200":
+          description: List of past standups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Standup"
+
+  /standup/{id}:
+    get:
+      operationId: getStandup
+      tags: [standup]
+      summary: Get a specific standup by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Standup detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Standup"
+        "404":
+          description: Not found
+
+  /standup/{id}/send-slack:
+    post:
+      operationId: sendStandupToSlack
+      tags: [standup]
+      summary: Send a standup to Slack
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sent to Slack
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: No Slack webhook configured
+
+  /preferences:
+    get:
+      operationId: getPreferences
+      tags: [preferences]
+      summary: Get current user preferences
+      responses:
+        "200":
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+    put:
+      operationId: updatePreferences
+      tags: [preferences]
+      summary: Update user preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePreferencesBody"
+      responses:
+        "200":
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+
+  /slack/test:
+    post:
+      operationId: testSlackWebhook
+      tags: [slack]
+      summary: Test Slack webhook configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestSlackBody"
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +271,238 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        githubId:
+          type: string
+        username:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - githubId
+        - username
+        - createdAt
+
+    GitHubRepo:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        fullName:
+          type: string
+        description:
+          type: ["string", "null"]
+        private:
+          type: boolean
+        language:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - fullName
+        - private
+
+    GitHubCommit:
+      type: object
+      properties:
+        sha:
+          type: string
+        message:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+      required:
+        - sha
+        - message
+        - author
+        - date
+
+    GitHubPR:
+      type: object
+      properties:
+        id:
+          type: integer
+        number:
+          type: integer
+        title:
+          type: string
+        state:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - number
+        - title
+        - state
+        - createdAt
+        - updatedAt
+
+    GitHubIssue:
+      type: object
+      properties:
+        id:
+          type: integer
+        number:
+          type: integer
+        title:
+          type: string
+        state:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - number
+        - title
+        - state
+        - createdAt
+
+    GitHubActivity:
+      type: object
+      properties:
+        commits:
+          type: array
+          items:
+            $ref: "#/components/schemas/GitHubCommit"
+        prs:
+          type: array
+          items:
+            $ref: "#/components/schemas/GitHubPR"
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/GitHubIssue"
+      required:
+        - commits
+        - prs
+        - issues
+
+    VelocityDay:
+      type: object
+      properties:
+        date:
+          type: string
+        commits:
+          type: integer
+        prs:
+          type: integer
+      required:
+        - date
+        - commits
+        - prs
+
+    Standup:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        repoName:
+          type: string
+        date:
+          type: string
+        yesterday:
+          type: string
+        today:
+          type: string
+        blockers:
+          type: array
+          items:
+            type: string
+        nextPriorityTask:
+          type: ["string", "null"]
+        velocityScore:
+          type: ["integer", "null"]
+        sentToSlack:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - repoName
+        - date
+        - yesterday
+        - today
+        - blockers
+        - sentToSlack
+        - createdAt
+
+    GenerateStandupBody:
+      type: object
+      properties:
+        repoName:
+          type: string
+        since:
+          type: string
+          description: ISO timestamp (defaults to 24h ago)
+      required:
+        - repoName
+
+    Preferences:
+      type: object
+      properties:
+        userId:
+          type: integer
+        slackWebhookUrl:
+          type: ["string", "null"]
+        standupTone:
+          type: string
+          enum: [professional, casual, bullet-points]
+        defaultRepo:
+          type: ["string", "null"]
+      required:
+        - userId
+        - standupTone
+
+    UpdatePreferencesBody:
+      type: object
+      properties:
+        slackWebhookUrl:
+          type: ["string", "null"]
+        standupTone:
+          type: string
+          enum: [professional, casual, bullet-points]
+        defaultRepo:
+          type: ["string", "null"]
+
+    TestSlackBody:
+      type: object
+      properties:
+        webhookUrl:
+          type: string
+      required:
+        - webhookUrl

@@ -1,0 +1,118 @@
+The error is state_mismatch — the OAuth state saved in 
+session on instance A is not found when callback hits 
+instance B. 
+
+The ONLY fix is to stop using session for state validation
+entirely and use a stateless approach instead.
+
+Do this completely:
+
+STEP 1 - Remove state validation from OAuth flow.
+In the GitHub login route, do NOT save state to session.
+Just redirect directly:
+
+app.get('/api/auth/github', (req, res) => {
+  const params = new URLSearchParams({
+    client_id: process.env.GITHUB_CLIENT_ID,
+    redirect_uri: process.env.GITHUB_CALLBACK_URL,
+    scope: 'repo user read:user user:email',
+  });
+  res.redirect(
+    `https://github.com/login/oauth/authorize?${params}`
+  );
+});
+
+STEP 2 - In the callback, skip state verification entirely.
+Just exchange the code directly:
+
+app.get('/api/auth/github/callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+    
+    if (!code) {
+      return res.redirect('/?error=no_code');
+    }
+
+    const tokenRes = await fetch(
+      'https://github.com/login/oauth/access_token',
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          client_id: process.env.GITHUB_CLIENT_ID,
+          client_secret: process.env.GITHUB_CLIENT_SECRET,
+          code,
+          redirect_uri: process.env.GITHUB_CALLBACK_URL,
+        }),
+      }
+    );
+
+    const tokenData = await tokenRes.json();
+    
+    if (tokenData.error || !tokenData.access_token) {
+      console.error('Token error:', tokenData);
+      return res.redirect('/?error=token_failed');
+    }
+
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    });
+
+    const user = await userRes.json();
+
+    // Save user to DB (upsert)
+    await db.query(`
+      INSERT INTO users (github_id, username, avatar_url, access_token)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (github_id) 
+      DO UPDATE SET 
+        username = $2, 
+        avatar_url = $3, 
+        access_token = $4,
+        updated_at = NOW()
+      RETURNING id
+    `, [user.id.toString(), user.login, user.avatar_url, 
+        tokenData.access_token]);
+
+    const dbUser = await db.query(
+      'SELECT id FROM users WHERE github_id = $1', 
+      [user.id.toString()]
+    );
+
+    // Set session
+    req.session.userId = dbUser.rows[0].id;
+    req.session.githubLogin = user.login;
+    req.session.avatarUrl = user.avatar_url;
+    
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect('/?error=session_failed');
+      }
+      res.redirect('/dashboard');
+    });
+
+  } catch (err) {
+    console.error('Auth callback error:', err);
+    res.redirect('/?error=auth_failed');
+  }
+});
+
+STEP 3 - Make sure GITHUB_CALLBACK_URL secret is set to:
+https://dev-pulse--udaydolas08.replit.app/api/auth/github/callback
+
+STEP 4 - Also set SESSION_SECRET as a Replit secret:
+Key: SESSION_SECRET  
+Value: devpulse-super-secret-2024-xK9mP
+
+STEP 5 - In the frontend, the Login button must point to:
+/api/auth/github
+(NOT /auth/github — the /api prefix is critical)
+
+STEP 6 - Redeploy and test.

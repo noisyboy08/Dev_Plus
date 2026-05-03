@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { randomBytes } from "crypto";
 import { db, usersTable, preferencesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { GetAuthMeResponse } from "@workspace/api-zod";
@@ -8,7 +7,6 @@ import { logger } from "../lib/logger.js";
 declare module "express-session" {
   interface SessionData {
     userId: number;
-    oauthState: string;
   }
 }
 
@@ -26,62 +24,48 @@ const GITHUB_CALLBACK_URL =
 const CLIENT_URL =
   process.env.CLIENT_URL || `https://${_primaryDomain}`;
 
-logger.info({ GITHUB_CALLBACK_URL, CLIENT_URL, clientIdPrefix: GITHUB_CLIENT_ID.slice(0, 6) }, "GitHub OAuth config");
+logger.info(
+  { GITHUB_CALLBACK_URL, CLIENT_URL, clientIdPrefix: GITHUB_CLIENT_ID.slice(0, 6) },
+  "GitHub OAuth config"
+);
 
-// ── Step 1: Redirect to GitHub ──────────────────────────────────────────────
+// ── Step 1: Redirect to GitHub (no state — stateless for autoscale compatibility) ──
 router.get("/auth/github", (req, res): void => {
   if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
-    res.status(503).json({ error: "GitHub OAuth is not configured. Add GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET." });
+    res.status(503).json({
+      error: "GitHub OAuth is not configured. Add GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET.",
+    });
     return;
   }
 
-  const state = randomBytes(20).toString("hex");
-
-  // Store state in session (postgres-backed, works across instances)
-  req.session.oauthState = state;
-  req.session.save((err) => {
-    if (err) {
-      logger.error({ err }, "Failed to save OAuth state to session");
-      res.status(500).json({ error: "Session error" });
-      return;
-    }
-
-    const params = new URLSearchParams({
-      client_id: GITHUB_CLIENT_ID,
-      redirect_uri: GITHUB_CALLBACK_URL,
-      scope: "user repo read:org",
-      state,
-    });
-
-    logger.info({ state, redirectUri: GITHUB_CALLBACK_URL }, "Redirecting to GitHub");
-    res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
+  const params = new URLSearchParams({
+    client_id: GITHUB_CLIENT_ID,
+    redirect_uri: GITHUB_CALLBACK_URL,
+    scope: "user repo read:org",
   });
+
+  logger.info({ redirectUri: GITHUB_CALLBACK_URL }, "Redirecting to GitHub");
+  res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
 });
 
-// ── Step 2: GitHub callback ──────────────────────────────────────────────────
+// ── Step 2: GitHub callback — exchange code, upsert user, set session ────────
 router.get("/auth/github/callback", async (req, res): Promise<void> => {
-  const { code, state, error: ghError } = req.query as Record<string, string>;
+  const { code, error: ghError } = req.query as Record<string, string>;
 
   if (ghError) {
     logger.error({ ghError }, "GitHub returned error on callback");
-    res.redirect(`${CLIENT_URL}?error=${ghError}`);
+    res.redirect(`${CLIENT_URL}?error=${encodeURIComponent(ghError)}`);
     return;
   }
 
-  const storedState = req.session.oauthState;
-  logger.info({ receivedState: state, storedState: storedState?.slice(0, 8) }, "OAuth state check");
-
-  if (!state || !storedState || state !== storedState) {
-    logger.error({ state, storedState }, "OAuth state mismatch — possible CSRF or session issue");
-    res.redirect(`${CLIENT_URL}?error=state_mismatch`);
+  if (!code) {
+    logger.error("No code received from GitHub");
+    res.redirect(`${CLIENT_URL}?error=no_code`);
     return;
   }
-
-  // Clear state immediately
-  delete req.session.oauthState;
 
   try {
-    // Exchange code for access token — direct fetch so we see the full response
+    // Exchange code for access token
     const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
       method: "POST",
       headers: {
@@ -97,11 +81,14 @@ router.get("/auth/github/callback", async (req, res): Promise<void> => {
     });
 
     const tokenData = (await tokenRes.json()) as Record<string, string>;
-    logger.info({ tokenStatus: tokenRes.status, tokenError: tokenData.error, tokenErrorDesc: tokenData.error_description }, "GitHub token exchange response");
+    logger.info(
+      { tokenStatus: tokenRes.status, tokenError: tokenData.error, tokenErrorDesc: tokenData.error_description },
+      "GitHub token exchange response"
+    );
 
     if (tokenData.error || !tokenData.access_token) {
       logger.error({ tokenData }, "GitHub token exchange failed");
-      res.redirect(`${CLIENT_URL}?error=${tokenData.error || "no_token"}`);
+      res.redirect(`${CLIENT_URL}?error=${encodeURIComponent(tokenData.error || "no_token")}`);
       return;
     }
 
@@ -121,10 +108,14 @@ router.get("/auth/github/callback", async (req, res): Promise<void> => {
       return;
     }
 
-    const profile = (await profileRes.json()) as { id: number; login: string; avatar_url?: string };
+    const profile = (await profileRes.json()) as {
+      id: number;
+      login: string;
+      avatar_url?: string;
+    };
     logger.info({ githubUsername: profile.login }, "GitHub profile fetched");
 
-    // Upsert user
+    // Upsert user in DB
     const githubId = String(profile.id);
     const existing = await db
       .select()
@@ -143,13 +134,18 @@ router.get("/auth/github/callback", async (req, res): Promise<void> => {
     } else {
       const [created] = await db
         .insert(usersTable)
-        .values({ githubId, username: profile.login, avatarUrl: profile.avatar_url || null, accessToken })
+        .values({
+          githubId,
+          username: profile.login,
+          avatarUrl: profile.avatar_url || null,
+          accessToken,
+        })
         .returning();
       user = created;
       await db.insert(preferencesTable).values({ userId: user.id, standupTone: "professional" });
     }
 
-    // Persist userId in session
+    // Save userId to session
     req.session.userId = user.id;
     req.session.save((err) => {
       if (err) {
@@ -157,8 +153,8 @@ router.get("/auth/github/callback", async (req, res): Promise<void> => {
         res.redirect(`${CLIENT_URL}?error=session_failed`);
         return;
       }
-      logger.info({ userId: user.id, username: user.username }, "User logged in");
-      res.redirect(CLIENT_URL);
+      logger.info({ userId: user.id, username: user.username }, "User logged in successfully");
+      res.redirect(`${CLIENT_URL}/dashboard`);
     });
   } catch (err) {
     logger.error({ err }, "Unexpected OAuth callback error");
@@ -166,7 +162,7 @@ router.get("/auth/github/callback", async (req, res): Promise<void> => {
   }
 });
 
-// ── /auth/me ────────────────────────────────────────────────────────────────
+// ── /auth/me ─────────────────────────────────────────────────────────────────
 router.get("/auth/me", async (req, res): Promise<void> => {
   const userId = req.session?.userId;
   if (!userId) {
@@ -201,7 +197,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   }
 });
 
-// ── /auth/logout ─────────────────────────────────────────────────────────────
+// ── /auth/logout ──────────────────────────────────────────────────────────────
 router.post("/auth/logout", (req, res): void => {
   req.session.destroy((err) => {
     if (err) {

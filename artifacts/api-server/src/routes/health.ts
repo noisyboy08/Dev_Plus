@@ -18,7 +18,7 @@ router.get("/debug-env", (_req, res) => {
     hasDatabaseUrl: !!process.env.DATABASE_URL,
     hasSessionSecret: !!process.env.SESSION_SECRET,
     nodeEnv: process.env.NODE_ENV ?? null,
-    replitDomains: process.env.REPLIT_DOMAINS ?? null,
+
     sessionStore: "postgresql",
     passportRemoved: true,
   });

@@ -1,18 +1,16 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 if (!process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL) {
-  throw new Error(
-    "AI_INTEGRATIONS_ANTHROPIC_BASE_URL must be set. Did you forget to provision the Anthropic AI integration?",
-  );
+  console.warn("WARNING: AI_INTEGRATIONS_ANTHROPIC_BASE_URL is not set. AI features will fail.");
 }
 
+export const anthropicUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || "http://localhost:11434";
+
 if (!process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
-  throw new Error(
-    "AI_INTEGRATIONS_ANTHROPIC_API_KEY must be set. Did you forget to provision the Anthropic AI integration?",
-  );
+  console.warn("WARNING: AI_INTEGRATIONS_ANTHROPIC_API_KEY is not set.");
 }
 
 export const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || "dummy",
+  baseURL: anthropicUrl,
 });

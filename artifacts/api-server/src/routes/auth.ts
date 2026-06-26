@@ -14,10 +14,7 @@ const router: IRouter = Router();
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || "";
-const _primaryDomain =
-  (process.env.REPLIT_DOMAINS || "").split(",")[0]?.trim() ||
-  process.env.REPLIT_DEV_DOMAIN ||
-  "localhost:8080";
+const _primaryDomain = "localhost:8080";
 const GITHUB_CALLBACK_URL =
   process.env.GITHUB_CALLBACK_URL ||
   `https://${_primaryDomain}/api/auth/github/callback`;

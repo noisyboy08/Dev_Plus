@@ -328,9 +328,7 @@ export function Home() {
           <p className="font-[DM_Sans] text-[var(--text-secondary)] text-sm leading-relaxed max-w-xs">
             Connect your GitHub in 30 seconds. Your first AI standup is free, forever.
           </p>
-          <div className="mt-10 font-[JetBrains_Mono] text-[10px] text-[var(--text-muted)] uppercase tracking-[0.25em] pt-8 border-t border-[var(--border-subtle)]">
-            Built for Replit 10 Year Buildathon · Powered by Claude AI
-          </div>
+            Powered by Claude AI
         </div>
         <div
           className="flex flex-col justify-center items-center px-12 py-24 relative overflow-hidden"

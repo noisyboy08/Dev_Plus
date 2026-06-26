@@ -34,7 +34,7 @@ export interface VelocityDay {
   prs: number;
 }
 
-async function ghFetch(token: string, path: string) {
+async function ghFetch(token: string, path: string): Promise<any> {
   const res = await fetch(`https://api.github.com${path}`, {
     headers: {
       Authorization: `token ${token}`,
